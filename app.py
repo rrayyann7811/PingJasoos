@@ -17,6 +17,10 @@ DEMO_URLS = {
     "HTTPBin - Success": "https://httpbin.org/status/200",
     "HTTPBin - Not Found": "https://httpbin.org/status/404",
     "HTTPBin - Server Error": "https://httpbin.org/status/500",
+    "GitHub User": "https://api.github.com/users/octocat",
+    "GitHub Repository": "https://api.github.com/repos/octocat/Hello-World",
+    "Lucknow Weather": "https://api.open-meteo.com/v1/forecast?latitude=26.85&longitude=80.95&current=temperature_2m",
+    "Kraken Market Data": "https://api.kraken.com/0/public/PreTrade?symbol=BTC%2FUSD",
 }
 
 
@@ -178,8 +182,8 @@ def main():
     st.write(
         "PingJasoos checks supported public APIs on demand. It displays HTTP status "
         "and response time, helps identify API errors, and provides small response previews. "
-        "Only the approved demo API hosts jsonplaceholder.typicode.com and httpbin.org "
-        "are currently supported."
+        "Supported providers are JSONPlaceholder, HTTPBin, GitHub, Open-Meteo, and Kraken. "
+        "GitHub, Open-Meteo, and Kraken are limited to approved public demo endpoints."
     )
     st.caption("Checks run only when you click a check button. The latest single result and up to 100 history records are kept in this session.")
 

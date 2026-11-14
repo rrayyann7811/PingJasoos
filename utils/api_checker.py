@@ -1,11 +1,15 @@
 import json
 import time
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 import requests
 
 
-ALLOWED_HOSTS = {"jsonplaceholder.typicode.com", "httpbin.org"}
+ALLOWED_HOSTS = {
+    "jsonplaceholder.typicode.com", "httpbin.org", "api.github.com",
+    "api.open-meteo.com", "api.kraken.com",
+}
+GITHUB_DEMO_PATHS = {"/users/octocat", "/repos/octocat/Hello-World"}
 PREVIEW_LIMIT = 500
 MAX_RESPONSE_BYTES = 1024 * 1024
 READ_CHUNK_BYTES = 8192
@@ -30,9 +34,42 @@ def validate_url(url):
     if parsed.username is not None or parsed.password is not None:
         return "URLs with embedded credentials are not allowed."
     if hostname not in ALLOWED_HOSTS:
-        return "Hostname is not approved. Use jsonplaceholder.typicode.com or httpbin.org."
+        return "Hostname is not approved. Choose a supported demo API."
     if port is not None and port != (443 if parsed.scheme == "https" else 80):
         return "Only the standard HTTP and HTTPS ports are allowed."
+
+    # Keep the original providers unchanged; limit new providers to public demos.
+    if hostname in {"jsonplaceholder.typicode.com", "httpbin.org"}:
+        return None
+    if parsed.scheme != "https" or parsed.fragment:
+        return "New API providers require HTTPS and URLs without fragments."
+    try:
+        query = parse_qs(parsed.query, keep_blank_values=True, strict_parsing=True)
+    except ValueError:
+        return "Enter valid query parameters for this demo endpoint."
+
+    if hostname == "api.github.com":
+        if parsed.path not in GITHUB_DEMO_PATHS or query:
+            return "Only the octocat user and Hello-World repository demos are supported on GitHub."
+    elif hostname == "api.open-meteo.com":
+        if parsed.path != "/v1/forecast":
+            return "Only the /v1/forecast endpoint is supported on Open-Meteo."
+        if set(query) != {"latitude", "longitude", "current"} or any(
+            len(values) != 1 for values in query.values()
+        ):
+            return "Provide one latitude, longitude, and current=temperature_2m only."
+        try:
+            latitude = float(query["latitude"][0])
+            longitude = float(query["longitude"][0])
+        except ValueError:
+            return "Latitude and longitude must be numbers."
+        if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
+            return "Latitude must be between -90 and 90; longitude between -180 and 180."
+        if query["current"] != ["temperature_2m"]:
+            return "Only current=temperature_2m is supported."
+    elif hostname == "api.kraken.com":
+        if parsed.path != "/0/public/PreTrade" or query != {"symbol": ["BTC/USD"]}:
+            return "Only /0/public/PreTrade with symbol=BTC/USD is supported on Kraken."
     return None
 
 

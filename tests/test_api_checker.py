@@ -8,6 +8,12 @@ from utils.api_checker import PREVIEW_LIMIT, check_api, validate_url
 
 URL = "https://jsonplaceholder.typicode.com/posts/1"
 RESULT_KEYS = {"url", "status_code", "response_time_ms", "success", "content_type", "preview", "error"}
+NEW_URLS = [
+    "https://api.github.com/users/octocat",
+    "https://api.github.com/repos/octocat/Hello-World",
+    "https://api.open-meteo.com/v1/forecast?latitude=26.85&longitude=80.95&current=temperature_2m",
+    "https://api.kraken.com/0/public/PreTrade?symbol=BTC%2FUSD",
+]
 
 
 def streamed_response(**kwargs):
@@ -21,6 +27,79 @@ def streamed_response(**kwargs):
 @pytest.mark.parametrize("url", [URL, "https://jsonplaceholder.typicode.com/users/1", "https://httpbin.org/status/404", "http://httpbin.org/get", "https://httpbin.org:443/get"])
 def test_approved_urls(url):
     assert validate_url(url) is None
+
+
+@pytest.mark.parametrize("url", NEW_URLS + [
+    "https://api.github.com:443/users/octocat",
+    "https://api.open-meteo.com/v1/forecast?current=temperature_2m&longitude=-180&latitude=-90",
+    "https://api.open-meteo.com/v1/forecast?latitude=90&longitude=180&current=temperature_2m",
+    "https://api.kraken.com/0/public/PreTrade?symbol=BTC/USD",
+])
+def test_new_approved_urls(url):
+    assert validate_url(url) is None
+
+
+@pytest.mark.parametrize("url", [
+    "https://api.github.com/user",
+    "https://api.github.com/users/octocat/repos",
+    "https://api.github.com/repos/octocat/Hello-World/issues",
+    "https://api.github.com/users/another-user",
+    "https://api.github.com/users/octocat?access_token=example",
+    "https://api.github.com/users/%6fctocat",
+    "https://api.github.com/users/../user",
+    "https://api.github.com/users/octocat/",
+    "https://api.open-meteo.com/v1/archive?latitude=26.85&longitude=80.95&current=temperature_2m",
+    "https://api.open-meteo.com/v1/forecast",
+    "https://api.kraken.com/0/private/Balance",
+    "https://api.kraken.com/0/public/Ticker?pair=BTCUSD",
+    "https://api.kraken.com/0/public/PreTrade",
+    "https://api.kraken.com/0/public/PreTrade?symbol=ETH%2FUSD",
+    "https://api.kraken.com/0/public/PreTrade?symbol=BTC%2FUSD&symbol=BTC%2FUSD",
+    "https://api.kraken.com/0/public/PreTrade?symbol=BTC%2FUSD&token=example",
+    "https://api.kraken.com/0/public/PreTrade?symbol=BTC%252FUSD",
+    "https://api.kraken.com/0/public/PreTrade?symbol=BTC%2FUSD&bad",
+    "http://127.1", "http://2130706433", "http://[::ffff:127.0.0.1]",
+    "http://[fc00::1]", "http://[fe80::1]", "https://localhost",
+    "https://192.168.0.1", "https://10.1.2.3", "https://172.31.255.255",
+    "https://169.254.169.254/latest/meta-data/",
+] + [
+    url.replace("https://", "http://", 1) for url in NEW_URLS
+] + [
+    url + "#fragment" for url in NEW_URLS
+] + [
+    url.replace("https://", "https://user:password@", 1) for url in NEW_URLS
+] + [
+    url.replace("https://", "https://@", 1) for url in NEW_URLS
+] + [
+    url.replace(host, replacement, 1)
+    for url, host in zip(NEW_URLS, ["api.github.com", "api.github.com", "api.open-meteo.com", "api.kraken.com"])
+    for replacement in [host + ".evil.example", "fake" + host, host + ".", host + ":8443", "127.0.0.1"]
+] + [
+    "https://api.open-meteo.com/v1/forecast?" + query
+    for query in [
+        "latitude=26.85&longitude=80.95",
+        "latitude=&longitude=80.95&current=temperature_2m",
+        "latitude=91&longitude=80.95&current=temperature_2m",
+        "latitude=-91&longitude=80.95&current=temperature_2m",
+        "latitude=26.85&longitude=181&current=temperature_2m",
+        "latitude=26.85&longitude=-181&current=temperature_2m",
+        "latitude=NaN&longitude=80.95&current=temperature_2m",
+        "latitude=26.85&longitude=inf&current=temperature_2m",
+        "latitude=localhost&longitude=80.95&current=temperature_2m",
+        "latitude=26.85,27&longitude=80.95&current=temperature_2m",
+        "latitude=26.85&latitude=27&longitude=80.95&current=temperature_2m",
+        "latitude=26.85&longitude=80.95&current=wind_speed_10m",
+        "latitude=26.85&longitude=80.95&current=temperature_2m&url=http://localhost",
+        "latitude=26.85&longitude=80.95&current=temperature_2m&apikey=example",
+    ]
+])
+def test_new_rejected_urls_never_send_requests(url):
+    with patch("utils.api_checker.requests.get") as get:
+        result = check_api(url)
+    get.assert_not_called()
+    assert result["error"]
+    assert result["status_code"] is None
+    assert result["response_time_ms"] is None
 
 
 @pytest.mark.parametrize("url", [
@@ -65,6 +144,17 @@ def test_success_and_timing(response):
     assert result["error"] is None
     assert result["response_time_ms"] == 125.0
     assert '"id": 1' in result["preview"]
+    response.close.assert_called_once()
+
+
+@pytest.mark.parametrize("url", NEW_URLS)
+def test_new_demos_use_existing_request_limits(response, url):
+    with patch("utils.api_checker.requests.get", return_value=response) as get:
+        result = check_api(url)
+    get.assert_called_once_with(url, timeout=5, allow_redirects=False, stream=True)
+    assert result["success"] is True
+    assert result["status_code"] == 200
+    assert result["preview"]
     response.close.assert_called_once()
 
 

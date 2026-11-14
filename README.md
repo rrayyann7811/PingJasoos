@@ -15,6 +15,7 @@ PingJasoos — API Health & Performance Monitor is a Python-based Streamlit appl
 - Check a demo endpoint or enter a URL on an approved host.
 - View HTTP status, response time, and a preview of up to 500 characters.
 - Handle invalid URLs, HTTP errors, redirects, timeouts, connection failures, and invalid JSON.
+- Try public demos from GitHub, Open-Meteo, and Kraken alongside JSONPlaceholder and HTTPBin.
 - Run up to five approved demo checks sequentially.
 - Review UTC-timestamped history, successful/failed counts, and average HTTP response time.
 - Plot measured HTTP response times in chronological order.
@@ -95,6 +96,21 @@ For an existing local copy, start with `python3.12 -m venv .venv` in the project
 
 Changing a widget does not send an API request.
 
+### Supported public API demos
+
+The new providers are restricted to these public GET endpoints:
+
+| Demo | Approved URL |
+|---|---|
+| GitHub User | `https://api.github.com/users/octocat` |
+| GitHub Repository | `https://api.github.com/repos/octocat/Hello-World` |
+| Lucknow Weather | `https://api.open-meteo.com/v1/forecast?latitude=26.85&longitude=80.95&current=temperature_2m` |
+| Kraken Market Data | `https://api.kraken.com/0/public/PreTrade?symbol=BTC%2FUSD` |
+
+GitHub accepts only the two paths above, without query parameters. Open-Meteo accepts only `/v1/forecast` with one latitude (-90 to 90), one longitude (-180 to 180), and `current=temperature_2m`. Kraken accepts only `/0/public/PreTrade` with `symbol=BTC/USD`. Duplicate, missing, or extra query parameters are rejected. These new providers require HTTPS and do not accept URL fragments or API keys.
+
+Endpoint references: [GitHub users](https://docs.github.com/en/rest/users/users#get-a-user), [GitHub repositories](https://docs.github.com/en/rest/repos/repos#get-a-repository), [Open-Meteo forecast](https://open-meteo.com/en/docs), and [Kraken PreTrade](https://docs.kraken.com/api/docs/rest-api/get-pre-trade).
+
 ## Testing
 
 With the virtual environment active:
@@ -109,13 +125,14 @@ Tests use mocked network requests and Streamlit AppTest; public API availability
 
 ## Limitations
 
-- Only `jsonplaceholder.typicode.com` and `httpbin.org` are supported, using HTTP/HTTPS on standard ports. Redirects are not followed.
+- Only exact approved hostnames are supported: `jsonplaceholder.typicode.com`, `httpbin.org`, `api.github.com`, `api.open-meteo.com`, and `api.kraken.com`. The original providers retain HTTP/HTTPS on standard ports; the new providers are limited to the HTTPS endpoints and parameters listed above. Arbitrary URLs, embedded credentials, and nonstandard ports are rejected. Redirects are not followed.
 - Checks run on demand; continuous monitoring is not provided.
 - History lives in the active session, is limited to 100 records, and is lost when the session ends.
 - Body reading retains at most 1 MiB of decompressed response bytes; larger responses produce a partial-preview warning. Previews are limited to 500 characters.
 - Response time is elapsed request-processing time, including bounded body reading and preview preparation, not network-only latency.
 - The five-second connection/read inactivity timeout is not a strict total-operation deadline.
 - Public demo API availability and response times can vary.
+- Public providers may rate-limit requests or return API-level errors inside HTTP 200 responses. PingJasoos reports HTTP health and does not interpret provider-specific error payloads. No authentication is sent by the application.
 
 ## Future Improvements
 

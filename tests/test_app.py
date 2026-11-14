@@ -43,6 +43,21 @@ def test_demo_selection_and_manual_editing(app, label, url):
     assert not app.exception
 
 
+@pytest.mark.parametrize("label", [
+    "GitHub User", "GitHub Repository", "Lucknow Weather", "Kraken Market Data",
+])
+def test_new_demo_check_updates_result_and_history(app, label):
+    response = streamed_response(status_code=200, headers={"Content-Type": "application/json"})
+    app.selectbox[0].select(label).run()
+    with patch("utils.api_checker.requests.get", return_value=response) as get:
+        app.button[0].click().run()
+    get.assert_called_once_with(DEMO_URLS[label], timeout=5, allow_redirects=False, stream=True)
+    assert not app.exception
+    assert app.metric[0].value == "200"
+    assert len(app.session_state.history) == 1
+    assert len(app.json) == 1
+
+
 @pytest.mark.parametrize("status", [200, 404, 500, 302])
 def test_button_http_results_and_persistence(app, status):
     response = streamed_response(status_code=status, headers={"Content-Type": "application/json"})
@@ -142,7 +157,7 @@ def test_history_reruns_chart_download_and_clear(app):
 
 
 def test_multiple_checks_are_explicit_and_sequential(app):
-    labels = list(DEMO_URLS)[1:]
+    labels = list(DEMO_URLS)[1:6]
     responses = [streamed_response(status_code=status, headers={"Content-Type": "text/plain"}, text="result")
                  for status in [200, 200, 200, 404, 500]]
     with patch("utils.api_checker.requests.get", side_effect=responses) as get:
