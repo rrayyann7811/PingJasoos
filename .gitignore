@@ -1,0 +1,28 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+.env
+.streamlit/secrets.toml
+
+# Local development tools and caches
+.agents/
+.claude/
+.codex/
+.aws/
+.mypy_cache/
+.ruff_cache/
+.pyright/
+.coverage
+htmlcov/
+*.log
+.env.*
+
+# Local screenshots not used by the README
+assets/.gitkeep
+assets/performance-analysis1.png
+assets/performance-analysis2.png
+assets/performance-analysis3.png
+assets/perfromance-analysis4.png
